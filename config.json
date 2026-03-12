@@ -1,0 +1,38 @@
+{
+  "notification": {
+    "type": "email",
+    "email": {
+      "smtp_host": "smtp.gmail.com",
+      "smtp_port": 587,
+      "from": "your_email@gmail.com",
+      "password": "your_app_password",
+      "to": "recipient@example.com"
+    },
+    "wechat": {
+      "webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY"
+    },
+    "dingtalk": {
+      "webhook": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
+      "secret": "YOUR_SECRET"
+    },
+    "feishu": {
+      "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK"
+    }
+  },
+  "collectors": {
+    "weather": {
+      "enabled": true,
+      "city": "北京",
+      "api_key": "YOUR_QWEATHER_API_KEY"
+    },
+    "news": {
+      "enabled": true,
+      "keyword": "",
+      "api_key": "YOUR_NEWS_API_KEY"
+    },
+    "stock": {
+      "enabled": true,
+      "symbol": "000001"
+    }
+  }
+}
