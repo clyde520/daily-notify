@@ -34,17 +34,46 @@ DINGTALK_SECRET = os.getenv("DINGTALK_SECRET", "")
 # 飞书配置
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK", "")
 
+# ==================== API 配置 ====================
+# 和风天气 API Key
+QWEATHER_API_KEY = os.getenv("QWEATHER_API_KEY", "")
+
+# 天行数据 API Key
+TIANXING_API_KEY = os.getenv("TIANXING_API_KEY", "")
+
 # ==================== 信息搜集模块 ====================
 
 class InfoCollector:
     """信息搜集器"""
 
     def fetch_weather(self, city: str = "北京") -> Dict:
-        """获取天气信息（示例使用免费API）"""
+        """获取天气信息（使用和风天气API）"""
         try:
-            # 这里使用和风天气API作为示例，需要替换为您的API Key
-            url = f"https://devapi.qweather.com/v7/weather/now?location={city}&key=YOUR_API_KEY"
-            response = requests.get(url)
+            # 如果没有配置API Key，使用模拟数据
+            if not QWEATHER_API_KEY:
+                import random
+                weathers = ["晴", "多云", "阴", "小雨", "中雨"]
+                weather = random.choice(weathers)
+                temp = random.randint(15, 30)
+                return {
+                    "type": "天气",
+                    "content": f"{city}当前天气：{weather}，温度：{temp}℃（模拟数据，请配置API获取真实数据）"
+                }
+
+            # 使用真实 API
+            # 先获取城市ID
+            city_url = f"https://geoapi.qweather.com/v2/city/lookup?location={city}&key={QWEATHER_API_KEY}"
+            city_response = requests.get(city_url)
+            city_data = city_response.json()
+
+            if not city_data.get('location'):
+                return {"type": "天气", "content": f"未找到城市：{city}"}
+
+            location_id = city_data['location'][0]['id']
+
+            # 获取天气
+            weather_url = f"https://devapi.qweather.com/v7/weather/now?location={location_id}&key={QWEATHER_API_KEY}"
+            response = requests.get(weather_url)
             data = response.json()
 
             return {
@@ -55,39 +84,67 @@ class InfoCollector:
             return {"type": "天气", "content": f"获取天气失败：{str(e)}"}
 
     def fetch_news(self, keyword: str = "") -> List[Dict]:
-        """获取新闻信息（示例）"""
+        """获取新闻信息（使用天行数据API）"""
         try:
-            # 这里可以使用各大新闻API，如：天行数据、聚合数据等
-            # 示例：使用RSS或自定义API
-            news_list = [
-                {"title": "示例新闻1", "url": "https://example.com/1"},
-                {"title": "示例新闻2", "url": "https://example.com/2"}
-            ]
+            # 如果没有配置API Key，使用模拟数据
+            if not TIANXING_API_KEY:
+                import random
+                titles = [
+                    "人工智能技术在医疗领域取得突破",
+                    "新能源汽车销量持续增长",
+                    "科学家发现新的可再生能源技术",
+                    "5G网络覆盖范围进一步扩大",
+                    "全球气候变化问题受到关注"
+                ]
+                news_list = random.sample(titles, min(3, len(titles)))
+                return {
+                    "type": "新闻",
+                    "content": "\n".join([f"• {title}" for title in news_list]) + "\n（模拟数据，请配置API获取真实数据）"
+                }
 
-            return {
-                "type": "新闻",
-                "content": "\n".join([f"• {item['title']}" for item in news_list])
-            }
+            # 使用真实 API
+            url = f"https://api.tianapi.com/topnews/index?key={TIANXING_API_KEY}&num=5"
+            response = requests.get(url)
+            data = response.json()
+
+            if data.get('code') != 200:
+                return {"type": "新闻", "content": f"获取新闻失败：{data.get('msg', '未知错误')}"}
+
+            news_list = data.get('newslist', [])
+            content = "\n".join([
+                f"• {item['title']}"
+                for item in news_list[:5]
+            ])
+
+            return {"type": "新闻", "content": content}
         except Exception as e:
             return {"type": "新闻", "content": f"获取新闻失败：{str(e)}"}
 
     def fetch_stock(self, symbol: str = "000001") -> Dict:
-        """获取股票信息（示例）"""
+        """获取股票信息（使用腾讯财经API，免费）"""
         try:
-            # 可以使用腾讯财经、新浪财经等API
+            # 使用腾讯财经API（免费）
+            # symbol格式：sh000001(上证指数) 或 sz000001(平安银行)
             url = f"https://qt.gtimg.cn/q={symbol}"
             response = requests.get(url)
             data = response.text
 
-            # 解析返回的数据
-            if '~' in data:
-                parts = data.split('~')
-                return {
-                    "type": "股票",
-                    "content": f"{symbol} 最新价：{parts[3]}，涨跌：{parts[4]}%"
-                }
+            # 腾讯API返回格式：v_sh000001="1~上证指数~3200.50~..."
+            if data.startswith('v_'):
+                content = data.split('"')[1]
+                if content:
+                    parts = content.split('~')
+                    if len(parts) > 3:
+                        name = parts[1]
+                        price = parts[3]
+                        change = parts[4]
+                        change_percent = parts[5]
+                        return {
+                            "type": "股票",
+                            "content": f"{name}({symbol}) 最新价：{price}，涨跌：{change}({change_percent}%)"
+                        }
 
-            return {"type": "股票", "content": "获取股票数据失败"}
+            return {"type": "股票", "content": "获取股票数据失败，请检查股票代码"}
         except Exception as e:
             return {"type": "股票", "content": f"获取股票失败：{str(e)}"}
 
